@@ -1,18 +1,26 @@
-# Multi-Module Spring Boot User Management System
+# Multi-Module Spring Boot E-Commerce System
 
 ## Project Overview
 
-This project is a multi-module Spring Boot application for managing users.  
+This project is a multi-module Spring Boot application for managing users and e-commerce operations.  
 The application was developed with the assistance of GitHub Copilot to improve development productivity and automate repetitive coding tasks.
 
 The system supports:
 
 - User CRUD operations
+- Product Catalog Management
+- Hierarchical Category Management
+- Advanced Product Search with Pagination and Filtering
+- Order Management with Transactional Business Logic
+- Inventory Management (auto stock reduction on order)
 - Request validation
 - Centralized exception handling
 - JWT authentication
+- Caching with `@Cacheable`
+- Scheduled Tasks with `@Scheduled`
+- Native SQL Queries
 - Swagger API documentation
-- Unit and integration testing
+- Unit and integration testing (42 tests)
 
 ---
 
@@ -44,22 +52,44 @@ homework/  (PARENT PROJECT)
 │   ├── pom.xml
 │   └── src/main/java/com/example/copilot/core/
 │       ├── entity/
-│       │   └── User.java
+│       │   ├── User.java
+│       │   ├── Category.java
+│       │   ├── Product.java
+│       │   ├── Order.java
+│       │   └── OrderItem.java
 │       ├── dto/
-│       │   └── UserDTO.java
+│       │   ├── UserDTO.java
+│       │   ├── CategoryDTO.java
+│       │   ├── ProductDTO.java
+│       │   ├── OrderDTO.java
+│       │   ├── OrderItemDTO.java
+│       │   └── CreateOrderRequestDTO.java
 │       └── enums/
-│           └── Role.java
+│           ├── Role.java
+│           └── OrderStatus.java
 │
 ├── service/  (Service Module)
 │   ├── pom.xml
 │   └── src/main/java/com/example/copilot/service/
 │       ├── repository/
-│       │   └── UserRepository.java
+│       │   ├── UserRepository.java
+│       │   ├── CategoryRepository.java
+│       │   ├── ProductRepository.java
+│       │   ├── OrderRepository.java
+│       │   └── OrderItemRepository.java
 │       ├── service/
-│       │   └── UserService.java
-│       └── implementation/
-│           ├── UserServiceImpl.java
-│           └── CustomUserDetailsService.java
+│       │   ├── UserService.java
+│       │   ├── CategoryService.java
+│       │   ├── ProductService.java
+│       │   └── OrderService.java
+│       ├── implementation/
+│       │   ├── UserServiceImpl.java
+│       │   ├── CategoryServiceImpl.java
+│       │   ├── ProductServiceImpl.java
+│       │   ├── OrderServiceImpl.java
+│       │   └── CustomUserDetailsService.java
+│       └── exception/
+│           └── InsufficientStockException.java
 │
 └── api/  (API Module)
     ├── pom.xml
@@ -67,27 +97,37 @@ homework/  (PARENT PROJECT)
     │   ├── HomeworkApplication.java
     │   ├── controller/
     │   │   ├── UserController.java
-    │   │   └── AuthController.java
+    │   │   ├── AuthController.java
+    │   │   ├── CategoryController.java
+    │   │   ├── ProductController.java
+    │   │   └── OrderController.java
     │   ├── dto/
     │   │   └── AuthRequest.java
     │   ├── exception/
     │   │   ├── ResourceNotFoundException.java
     │   │   ├── ErrorResponse.java
     │   │   └── GlobalExceptionHandler.java
+    │   ├── scheduler/
+    │   │   └── OrderScheduler.java
     │   ├── security/
     │   │   ├── JwtUtil.java
     │   │   └── JwtFilter.java
     │   └── config/
     │       ├── SecurityConfig.java
+    │       ├── CacheConfig.java
     │       ├── OpenApiConfig.java
     │       └── JpaConfig.java
     ├── src/main/resources/
     │   └── application.yml
     └── src/test/java/com/example/copilot/api/
         ├── service/
-        │   └── UserServiceImplTest.java
+        │   ├── UserServiceImplTest.java
+        │   ├── ProductServiceImplTest.java
+        │   └── OrderServiceImplTest.java
         └── controller/
-            └── UserControllerIntegrationTest.java
+            ├── UserControllerIntegrationTest.java
+            ├── ProductControllerIntegrationTest.java
+            └── OrderControllerIntegrationTest.java
 ```
 
 ---
@@ -103,11 +143,13 @@ com.example.copilot
 ├── service
 │   ├── repository
 │   ├── service
-│   └── implementation
+│   ├── implementation
+│   └── exception
 └── api
     ├── controller
     ├── dto
     ├── exception
+    ├── scheduler
     ├── security
     └── config
 ```
@@ -130,8 +172,14 @@ Contains:
 Files:
 
 - `User.java` - JPA entity
-- `UserDTO.java` - Data transfer object with validation
+- `Category.java` - Hierarchical category entity (self-referencing)
+- `Product.java` - Product entity with category relationship
+- `Order.java` - Order entity with user and order items
+- `OrderItem.java` - Order item with price snapshot at purchase time
+- `UserDTO.java`, `CategoryDTO.java`, `ProductDTO.java` - Request/response DTOs
+- `OrderDTO.java`, `OrderItemDTO.java`, `CreateOrderRequestDTO.java` - Order DTOs
 - `Role.java` - Enum (ADMIN, USER, MODERATOR)
+- `OrderStatus.java` - Enum (PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED)
 
 ---
 
@@ -142,16 +190,20 @@ Package: `com.example.copilot.service`
 Contains:
 
 - Business logic
-- Service interfaces
-- Service implementations
+- Service interfaces and implementations
 - Repository layer
 - Spring Security UserDetailsService
+- Custom exceptions
 
 Files:
 
-- `UserService.java` - Service interface
-- `UserServiceImpl.java` - Business logic implementation
-- `UserRepository.java` - JPA repository
+- `UserService.java` / `UserServiceImpl.java` - User business logic
+- `CategoryService.java` / `CategoryServiceImpl.java` - Category management with `@Cacheable`
+- `ProductService.java` / `ProductServiceImpl.java` - Product management with `@Cacheable` / `@CacheEvict`
+- `OrderService.java` / `OrderServiceImpl.java` - Transactional order placement
+- `UserRepository.java`, `CategoryRepository.java`, `ProductRepository.java` - JPA repositories
+- `OrderRepository.java`, `OrderItemRepository.java` - Order repositories
+- `InsufficientStockException.java` - Custom exception for out-of-stock
 - `CustomUserDetailsService.java` - Spring Security integration
 
 ---
@@ -166,21 +218,22 @@ Contains:
 - Exception handling
 - Security configuration
 - JWT authentication
+- Caching configuration
+- Scheduled tasks
 - Swagger/OpenAPI configuration
 - JPA configuration
 - Application entry point
 
 Files:
 
-- `HomeworkApplication.java` - Main Spring Boot class
-- `UserController.java` - User CRUD endpoints
-- `AuthController.java` - JWT login endpoint
-- `AuthRequest.java` - Login request DTO
-- `GlobalExceptionHandler.java` - Centralized error handling
-- `ResourceNotFoundException.java` - Custom 404 exception
-- `ErrorResponse.java` - Standardized error response
-- `JwtUtil.java` - JWT generation/validation
-- `JwtFilter.java` - JWT request filter
+- `HomeworkApplication.java` - Main Spring Boot class (`@EnableCaching`, `@EnableScheduling`)
+- `UserController.java`, `AuthController.java` - User and auth endpoints
+- `CategoryController.java` - Category CRUD endpoints
+- `ProductController.java` - Product CRUD + search/filter endpoints
+- `OrderController.java` - Order placement and retrieval endpoints
+- `OrderScheduler.java` - Auto-cancel PENDING orders older than 24h
+- `GlobalExceptionHandler.java` - Handles `ResourceNotFoundException`, `InsufficientStockException`, validation errors
+- `CacheConfig.java` - `ConcurrentMapCacheManager` for `products` and `categories`
 - `SecurityConfig.java` - Spring Security configuration
 - `OpenApiConfig.java` - Swagger configuration
 - `JpaConfig.java` - JPA/entity manager configuration
@@ -199,6 +252,40 @@ Files:
 | PUT | `/api/users/{id}` | Yes | Update user |
 | DELETE | `/api/users/{id}` | Yes | Delete user |
 | POST | `/auth/login` | No | Generate JWT token |
+
+---
+
+## Category API
+
+| Method | Endpoint | Auth Required | Description |
+|---|---|---|---|
+| POST | `/api/categories` | Yes | Create category (supports parent) |
+| GET | `/api/categories` | No | Get all categories (cached) |
+| GET | `/api/categories/{id}` | No | Get category by ID |
+
+---
+
+## Product API
+
+| Method | Endpoint | Auth Required | Description |
+|---|---|---|---|
+| POST | `/api/products` | Yes | Create product |
+| GET | `/api/products/{id}` | No | Get product by ID (cached) |
+| GET | `/api/products` | No | Search/filter products with pagination |
+| PUT | `/api/products/{id}` | Yes | Update product |
+| DELETE | `/api/products/{id}` | Yes | Delete product |
+
+Search query parameters: `keyword`, `categoryId`, `minPrice`, `maxPrice`, `page`, `size`
+
+---
+
+## Order API
+
+| Method | Endpoint | Auth Required | Description |
+|---|---|---|---|
+| POST | `/api/orders` | Yes | Place a new order |
+| GET | `/api/orders` | Yes | Get all orders |
+| GET | `/api/users/{userId}/orders` | Yes | Get orders by user |
 
 ---
 
@@ -285,13 +372,19 @@ http://localhost:8080/v3/api-docs
 
 ## Unit Tests
 
-- `UserServiceImplTest` — 10 tests covering all service methods
+- `UserServiceImplTest` — 10 tests covering all user service methods
+- `ProductServiceImplTest` — 9 tests covering product CRUD, search, and category assignment
+- `OrderServiceImplTest` — 6 tests covering order placement, stock validation, and rollback
 - Uses JUnit 5 + Mockito
 
 ## Integration Tests
 
-- `UserControllerIntegrationTest` — 8 tests covering all REST endpoints
+- `UserControllerIntegrationTest` — 8 tests covering all user REST endpoints
+- `ProductControllerIntegrationTest` — 4 tests covering product search and auth
+- `OrderControllerIntegrationTest` — 5 tests covering order placement, out-of-stock (409), and auth
 - Uses SpringBootTest + MockMvc + Spring Security Test
+
+**Total: 42 tests — all passing**
 
 ## Run Tests
 
@@ -342,15 +435,40 @@ cd "Day 3/homework"
 
 ---
 
+# Advanced Features (Day 4)
+
+## Caching
+
+- `@Cacheable("products")` on `getProductById()`
+- `@Cacheable("categories")` on `getAllCategories()`
+- `@CacheEvict` on `updateProduct()`, `deleteProduct()`, and `placeOrder()` to keep cache consistent
+
+## Native SQL Query
+
+`ProductRepository.findTop5BestSellingProducts()` uses `nativeQuery = true` to join `products` and `order_items` and return top 5 by total quantity sold.
+
+## Scheduled Task
+
+`OrderScheduler` runs every hour (`fixedRate = 3600000`) to find all PENDING orders older than 24 hours and automatically change their status to CANCELLED.
+
+## Transactional Order Placement
+
+`placeOrder()` is `@Transactional` — if any item fails (insufficient stock), the entire transaction rolls back and no partial data is saved.
+
+---
+
 # GitHub Copilot Usage
 
 GitHub Copilot was used throughout the project to assist with:
 
 - Entity and DTO generation
+- JPQL and native SQL query generation
 - Repository and service implementation
+- Transactional order logic
 - REST controller generation
 - JWT security configuration
 - Exception handling
+- Caching and scheduling setup
 - Swagger setup
 - Unit and integration test generation
 
