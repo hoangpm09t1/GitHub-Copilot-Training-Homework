@@ -127,4 +127,35 @@ class UserControllerIntegrationTest {
         mockMvc.perform(delete("/api/users/1"))
             .andExpect(status().isNoContent());
     }
+
+    @Test
+    @WithMockUser
+    void getUserById_shouldReturn404_whenNotFound() throws Exception {
+        when(userService.getUserById(99L)).thenThrow(new RuntimeException("User not found"));
+
+        mockMvc.perform(get("/api/users/99"))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser
+    void updateUser_shouldReturn404_whenNotFound() throws Exception {
+        when(userService.updateUser(eq(99L), any(UserDTO.class)))
+            .thenThrow(new RuntimeException("User not found"));
+
+        mockMvc.perform(put("/api/users/99")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(userDTO)))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser
+    void deleteUser_shouldReturn404_whenNotFound() throws Exception {
+        org.mockito.Mockito.doThrow(new RuntimeException("User not found"))
+            .when(userService).deleteUser(99L);
+
+        mockMvc.perform(delete("/api/users/99"))
+            .andExpect(status().isNotFound());
+    }
 }

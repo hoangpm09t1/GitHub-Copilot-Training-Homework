@@ -9,7 +9,11 @@ public interface OrderService {
 
     OrderDTO placeOrder(CreateOrderRequestDTO request);
 
+    OrderDTO getOrderById(Long orderId);
+
     List<OrderDTO> getAllOrders();
 
     List<OrderDTO> getOrdersByUserId(Long userId);
+
+    OrderDTO cancelOrder(Long orderId);
 }

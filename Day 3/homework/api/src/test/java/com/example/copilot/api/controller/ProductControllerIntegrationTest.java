@@ -87,4 +87,37 @@ class ProductControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(sampleProduct)))
                 .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    @org.springframework.security.test.context.support.WithMockUser
+    void createProduct_shouldReturn201_whenAuthenticated() throws Exception {
+        when(productService.addProduct(any())).thenReturn(sampleProduct);
+
+        mockMvc.perform(post("/api/products")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(sampleProduct)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.name").value("iPhone 15"));
+    }
+
+    @Test
+    @org.springframework.security.test.context.support.WithMockUser
+    void updateProduct_shouldReturn200_whenAuthenticated() throws Exception {
+        when(productService.updateProduct(eq(1L), any())).thenReturn(sampleProduct);
+
+        mockMvc.perform(put("/api/products/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(sampleProduct)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1));
+    }
+
+    @Test
+    @org.springframework.security.test.context.support.WithMockUser
+    void deleteProduct_shouldReturn204_whenAuthenticated() throws Exception {
+        org.mockito.Mockito.doNothing().when(productService).deleteProduct(1L);
+
+        mockMvc.perform(delete("/api/products/1"))
+                .andExpect(status().isNoContent());
+    }
 }

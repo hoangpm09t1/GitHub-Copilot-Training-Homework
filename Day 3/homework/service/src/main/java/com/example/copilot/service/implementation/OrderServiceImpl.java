@@ -14,6 +14,7 @@ import com.example.copilot.service.repository.UserRepository;
 import com.example.copilot.service.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +34,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "products", allEntries = true)
     public OrderDTO placeOrder(CreateOrderRequestDTO request) {
         log.info("Placing order for userId: {}", request.getUserId());
 
@@ -84,6 +86,42 @@ public class OrderServiceImpl implements OrderService {
 
         log.info("Order placed successfully with id: {}", savedOrder.getId());
         return toDTO(savedOrder);
+    }
+
+    @Override
+    public OrderDTO getOrderById(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found with id: " + orderId));
+        return toDTO(order);
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(value = "products", allEntries = true)
+    public OrderDTO cancelOrder(Long orderId) {
+        log.info("Cancelling order with id: {}", orderId);
+
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found with id: " + orderId));
+
+        if (order.getStatus() == OrderStatus.SHIPPED
+                || order.getStatus() == OrderStatus.DELIVERED
+                || order.getStatus() == OrderStatus.CANCELLED) {
+            throw new IllegalStateException(
+                    "Cannot cancel order in status: " + order.getStatus());
+        }
+
+        for (OrderItem item : order.getOrderItems()) {
+            Product product = item.getProduct();
+            product.setStockQuantity(product.getStockQuantity() + item.getQuantity());
+            productRepository.save(product);
+        }
+
+        order.setStatus(OrderStatus.CANCELLED);
+        Order saved = orderRepository.save(order);
+
+        log.info("Order {} cancelled successfully", orderId);
+        return toDTO(saved);
     }
 
     @Override

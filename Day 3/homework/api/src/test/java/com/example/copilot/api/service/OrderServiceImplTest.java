@@ -19,6 +19,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.example.copilot.core.entity.OrderItem;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -160,5 +161,94 @@ class OrderServiceImplTest {
         request.setItems(List.of(new CreateOrderRequestDTO.OrderItemRequest(1L, 1)));
 
         assertThrows(RuntimeException.class, () -> orderService.placeOrder(request));
+    }
+
+    // --- TDD: Order Cancellation ---
+
+    @Test
+    void cancelOrder_shouldCancelAndRestoreStock_whenPending() {
+        OrderItem item = OrderItem.builder()
+                .id(1L).quantity(3).price(BigDecimal.valueOf(999.99))
+                .product(product).build();
+
+        Order pendingOrder = Order.builder()
+                .id(10L).orderDate(LocalDateTime.now())
+                .status(OrderStatus.PENDING).user(user)
+                .orderItems(new ArrayList<>(List.of(item)))
+                .build();
+        item.setOrder(pendingOrder);
+
+        Order cancelledOrder = Order.builder()
+                .id(10L).orderDate(pendingOrder.getOrderDate())
+                .status(OrderStatus.CANCELLED).user(user)
+                .orderItems(pendingOrder.getOrderItems())
+                .build();
+
+        when(orderRepository.findById(10L)).thenReturn(Optional.of(pendingOrder));
+        when(productRepository.save(any(Product.class))).thenReturn(product);
+        when(orderRepository.save(any(Order.class))).thenReturn(cancelledOrder);
+
+        OrderDTO result = orderService.cancelOrder(10L);
+
+        assertEquals(OrderStatus.CANCELLED, result.getStatus());
+        verify(productRepository).save(argThat(p -> p.getStockQuantity() == 13));
+        verify(orderRepository).save(argThat(o -> o.getStatus() == OrderStatus.CANCELLED));
+    }
+
+    @Test
+    void cancelOrder_shouldThrowException_whenOrderIsShipped() {
+        Order shippedOrder = Order.builder()
+                .id(10L).orderDate(LocalDateTime.now())
+                .status(OrderStatus.SHIPPED).user(user)
+                .orderItems(new ArrayList<>())
+                .build();
+
+        when(orderRepository.findById(10L)).thenReturn(Optional.of(shippedOrder));
+
+        assertThrows(IllegalStateException.class, () -> orderService.cancelOrder(10L));
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void cancelOrder_shouldThrowException_whenOrderNotFound() {
+        when(orderRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class, () -> orderService.cancelOrder(99L));
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void cancelOrder_shouldThrowException_whenOrderIsDelivered() {
+        Order deliveredOrder = Order.builder()
+                .id(10L).orderDate(LocalDateTime.now())
+                .status(OrderStatus.DELIVERED).user(user)
+                .orderItems(new ArrayList<>())
+                .build();
+
+        when(orderRepository.findById(10L)).thenReturn(Optional.of(deliveredOrder));
+
+        assertThrows(IllegalStateException.class, () -> orderService.cancelOrder(10L));
+    }
+
+    @Test
+    void getOrderById_shouldReturnOrder_whenExists() {
+        Order order = Order.builder()
+                .id(1L).orderDate(LocalDateTime.now())
+                .status(OrderStatus.PENDING).user(user).orderItems(new ArrayList<>())
+                .build();
+
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        OrderDTO result = orderService.getOrderById(1L);
+
+        assertNotNull(result);
+        assertEquals(1L, result.getId());
+    }
+
+    @Test
+    void getOrderById_shouldThrowException_whenNotFound() {
+        when(orderRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class, () -> orderService.getOrderById(99L));
     }
 }

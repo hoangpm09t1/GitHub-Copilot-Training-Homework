@@ -8,6 +8,7 @@ import com.example.copilot.service.repository.ProductRepository;
 import com.example.copilot.service.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -36,6 +37,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "products", key = "#id")
     public ProductDTO updateProduct(Long id, ProductDTO dto) {
         log.info("Updating product id: {}", id);
         Product product = productRepository.findById(id)
@@ -54,6 +56,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "products", key = "#id")
     public void deleteProduct(Long id) {
         log.info("Deleting product id: {}", id);
         if (!productRepository.existsById(id)) {
@@ -63,6 +66,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     @Cacheable("products")
     public ProductDTO getProductById(Long id) {
         Product product = productRepository.findById(id)

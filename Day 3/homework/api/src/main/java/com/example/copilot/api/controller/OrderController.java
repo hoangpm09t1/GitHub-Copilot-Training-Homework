@@ -31,9 +31,21 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getAllOrders());
     }
 
+    @GetMapping("/api/orders/{orderId}")
+    @Operation(summary = "Get order by ID", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<OrderDTO> getOrderById(@PathVariable Long orderId) {
+        return ResponseEntity.ok(orderService.getOrderById(orderId));
+    }
+
     @GetMapping("/api/users/{userId}/orders")
     @Operation(summary = "Get orders by user", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<List<OrderDTO>> getOrdersByUser(@PathVariable Long userId) {
         return ResponseEntity.ok(orderService.getOrdersByUserId(userId));
+    }
+
+    @PatchMapping("/api/orders/{orderId}/cancel")
+    @Operation(summary = "Cancel an order", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<OrderDTO> cancelOrder(@PathVariable Long orderId) {
+        return ResponseEntity.ok(orderService.cancelOrder(orderId));
     }
 }

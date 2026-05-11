@@ -112,4 +112,51 @@ class OrderControllerIntegrationTest {
         mockMvc.perform(get("/api/users/1/orders"))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    @WithMockUser
+    void getOrderById_shouldReturn200_whenExists() throws Exception {
+        OrderDTO orderDTO = OrderDTO.builder()
+                .id(1L).orderDate(LocalDateTime.now())
+                .status(OrderStatus.PENDING).userId(1L).orderItems(List.of())
+                .build();
+
+        when(orderService.getOrderById(1L)).thenReturn(orderDTO);
+
+        mockMvc.perform(get("/api/orders/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.status").value("PENDING"));
+    }
+
+    @Test
+    @WithMockUser
+    void cancelOrder_shouldReturn200_whenPending() throws Exception {
+        OrderDTO cancelledDTO = OrderDTO.builder()
+                .id(1L).orderDate(LocalDateTime.now())
+                .status(OrderStatus.CANCELLED).userId(1L).orderItems(List.of())
+                .build();
+
+        when(orderService.cancelOrder(1L)).thenReturn(cancelledDTO);
+
+        mockMvc.perform(patch("/api/orders/1/cancel"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"));
+    }
+
+    @Test
+    @WithMockUser
+    void cancelOrder_shouldReturn400_whenAlreadyShipped() throws Exception {
+        when(orderService.cancelOrder(1L))
+                .thenThrow(new IllegalStateException("Cannot cancel order in status: SHIPPED"));
+
+        mockMvc.perform(patch("/api/orders/1/cancel"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void cancelOrder_shouldReturn401_whenNoAuth() throws Exception {
+        mockMvc.perform(patch("/api/orders/1/cancel"))
+                .andExpect(status().isUnauthorized());
+    }
 }
