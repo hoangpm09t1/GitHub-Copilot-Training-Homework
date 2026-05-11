@@ -20,7 +20,7 @@ The system supports:
 - Scheduled Tasks with `@Scheduled`
 - Native SQL Queries
 - Swagger API documentation
-- Unit and integration testing (42 tests)
+- Unit and integration testing (81 tests, ≥80% JaCoCo coverage)
 
 ---
 
@@ -124,10 +124,24 @@ homework/  (PARENT PROJECT)
         │   ├── UserServiceImplTest.java
         │   ├── ProductServiceImplTest.java
         │   └── OrderServiceImplTest.java
-        └── controller/
-            ├── UserControllerIntegrationTest.java
-            ├── ProductControllerIntegrationTest.java
-            └── OrderControllerIntegrationTest.java
+        ├── AbstractIntegrationTest.java
+        ├── EcommerceWorkflowIntegrationTest.java
+        ├── controller/
+        │   ├── AuthControllerTest.java
+        │   ├── CategoryControllerTest.java
+        │   ├── UserControllerIntegrationTest.java
+        │   ├── ProductControllerIntegrationTest.java
+        │   └── OrderControllerIntegrationTest.java
+        ├── repository/
+        │   ├── UserRepositoryTest.java
+        │   ├── ProductRepositoryTest.java
+        │   └── OrderRepositoryTest.java
+        ├── security/
+        │   └── JwtUtilTest.java
+        └── service/
+            ├── UserServiceImplTest.java
+            ├── ProductServiceImplTest.java
+            └── OrderServiceImplTest.java
 ```
 
 ---
@@ -285,6 +299,8 @@ Search query parameters: `keyword`, `categoryId`, `minPrice`, `maxPrice`, `page`
 |---|---|---|---|
 | POST | `/api/orders` | Yes | Place a new order |
 | GET | `/api/orders` | Yes | Get all orders |
+| GET | `/api/orders/{orderId}` | Yes | Get order by ID |
+| PATCH | `/api/orders/{orderId}/cancel` | Yes | Cancel an order (PENDING/CONFIRMED only) |
 | GET | `/api/users/{userId}/orders` | Yes | Get orders by user |
 
 ---
@@ -308,7 +324,9 @@ Validation errors are handled centrally using `@ControllerAdvice`.
 The application uses centralized exception handling:
 
 - `GlobalExceptionHandler` - catches all exceptions
-- `ResourceNotFoundException` - thrown when user not found (HTTP 404)
+- `ResourceNotFoundException` - thrown when resource not found (HTTP 404)
+- `InsufficientStockException` - thrown when stock is insufficient (HTTP 409)
+- `IllegalStateException` - thrown when cancelling an order in invalid status (HTTP 400)
 - Validation errors return HTTP 400
 
 Error response format:
@@ -374,22 +392,46 @@ http://localhost:8080/v3/api-docs
 
 - `UserServiceImplTest` — 10 tests covering all user service methods
 - `ProductServiceImplTest` — 9 tests covering product CRUD, search, and category assignment
-- `OrderServiceImplTest` — 6 tests covering order placement, stock validation, and rollback
+- `OrderServiceImplTest` — 12 tests covering order placement, stock validation, rollback, cancelOrder, getOrderById
+- `JwtUtilTest` — 5 tests covering token generation, extraction, and validation
 - Uses JUnit 5 + Mockito
 
-## Integration Tests
+## Integration Tests (MockMvc + Mockito)
 
-- `UserControllerIntegrationTest` — 8 tests covering all user REST endpoints
-- `ProductControllerIntegrationTest` — 4 tests covering product search and auth
-- `OrderControllerIntegrationTest` — 5 tests covering order placement, out-of-stock (409), and auth
+- `UserControllerIntegrationTest` — 10 tests covering all user REST endpoints including 404 paths
+- `ProductControllerIntegrationTest` — 7 tests covering product CRUD, search, and auth
+- `OrderControllerIntegrationTest` — 8 tests covering order placement, cancel, out-of-stock (409), and auth
+- `AuthControllerTest` — 2 tests covering login failure and validation error
+- `CategoryControllerTest` — 3 tests covering all category endpoints
 - Uses SpringBootTest + MockMvc + Spring Security Test
 
-**Total: 42 tests — all passing**
+## Repository Tests
+
+- `UserRepositoryTest` — 3 tests covering findByEmail and save
+- `ProductRepositoryTest` — 5 tests covering searchProducts with keyword, category, price range
+- `OrderRepositoryTest` — 3 tests covering findByUserId and findByStatusAndOrderDateBefore
+
+## End-to-End Tests
+
+- `EcommerceWorkflowIntegrationTest` — 2 full workflow tests: place order → cancel (stock restored), place order → ship → cancel fails
+
+## Code Coverage
+
+- JaCoCo 0.8.13 configured with **≥80% line coverage** enforcement
+- Run `mvn verify` to generate report at `api/target/site/jacoco/index.html`
+
+**Total: 81 tests — all passing, coverage ≥80%**
 
 ## Run Tests
 
 ```bash
 .\mvnw.cmd -pl api test
+```
+
+## Run Tests with Coverage Report
+
+```bash
+.\mvnw.cmd clean verify
 ```
 
 ---
@@ -432,6 +474,31 @@ cd "Day 3/homework"
 ## JPA / Entity scan issues
 
 `JpaConfig.java` manually configures `LocalContainerEntityManagerFactoryBean` to scan `com.example.copilot.core.entity`. `HibernateJpaAutoConfiguration` is excluded via `application.yml` to avoid conflict.
+
+---
+
+# Advanced Features (Day 5) — TDD & Quality Assurance
+
+## Test-Driven Development (TDD)
+
+`cancelOrder` feature was implemented using Red-Green-Refactor:
+
+1. **Red** — wrote failing tests for `cancelOrder` (should cancel PENDING, throw on SHIPPED/DELIVERED/CANCELLED, restore stock)
+2. **Green** — implemented `cancelOrder` in `OrderServiceImpl` to make tests pass
+3. **Refactor** — cleaned up and added `getOrderById` method
+
+## Order Cancellation Business Rules
+
+- Only orders in `PENDING` or `CONFIRMED` status can be cancelled
+- On cancellation, stock quantity is restored for each order item
+- Attempting to cancel `SHIPPED`, `DELIVERED`, or `CANCELLED` orders throws `IllegalStateException` (HTTP 400)
+
+## JaCoCo Code Coverage
+
+- Plugin version: 0.8.13 (supports Java 21 bytecode)
+- Compiler configured with `<release>21</release>` for JaCoCo compatibility on Java 26 JDK
+- Minimum line coverage: **80%**
+- Report location: `api/target/site/jacoco/index.html`
 
 ---
 
